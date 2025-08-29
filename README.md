@@ -1,4 +1,4 @@
-                                     [![](https://poggit.pmmp.io/shield.state/Pillars)](https://poggit.pmmp.io/p/Pillars)
+  [![](https://poggit.pmmp.io/shield.state/Pillars)](https://poggit.pmmp.io/p/Pillars)
 
 # Pillars of Fortune
 
