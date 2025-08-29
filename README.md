@@ -1,5 +1,4 @@
-[![](https://poggit.pmmp.io/shield.state/Pillars)](https://poggit.pmmp.io/p/Pillars)
-<a href="https://poggit.pmmp.io/p/Pillars"><img src="https://poggit.pmmp.io/shield.state/Pillars"></a>
+
 
 # Pillars of Fortune
 
