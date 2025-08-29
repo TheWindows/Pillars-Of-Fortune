@@ -1,3 +1,6 @@
+[![](https://poggit.pmmp.io/shield.state/Pillars)](https://poggit.pmmp.io/p/Pillars)
+<a href="https://poggit.pmmp.io/p/Pillars"><img src="https://poggit.pmmp.io/shield.state/Pillars"></a>
+
 # Pillars of Fortune
 
 <img width="1366" height="687" alt="Screenshot 2025-08-28 125714" src="https://github.com/user-attachments/assets/000d3252-61b3-4ace-abc8-ea76b3735903" />
