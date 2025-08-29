@@ -4,10 +4,10 @@ main: TheWindows\Pillars\Main
 api: 5.0.0
 author: TheWindows
 depend:
-  - FormAPI
   - MultiWorld
 virions:
   - apibossbar
+  - libFormAPI
 permissions:
   pillars.admin:
     description: "Allows access to Pillars admin commands"
@@ -15,4 +15,5 @@ permissions:
   pillars.join:
     description: "Allows players to join Pillars games"
     default: true
+
 
