@@ -114,4 +114,4 @@ For support or inquiries, reach out on:
 - **Discord**: TheWindowsJava
 - **GitHub**: [TheWindows](https://github.com/TheWindows)
 
-Thank you for choosing **Pillars of Fortune**! Let's create epic gaming moments together! 🚀
+Thank you for choosing **Pillars of Fortune**! 🚀
