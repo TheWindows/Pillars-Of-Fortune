@@ -1,0 +1,44 @@
+# ====================================================
+#   Pillars of Fortune (v1.0.0 Beta)
+#   Developed by TheWindows
+#   © 2025 TheWindows. All Rights Reserved.
+# ====================================================
+
+# === Plugin Requirements ===
+# To ensure proper functionality, please install:
+# - FormAPI    → Enables interactive forms
+# - ScoreHud   → Displays player scoreboards
+# - DEVirion   → Provides virion support
+#
+# Required Virion:
+# - apibossbar → Enables boss bar functionality
+
+# === Server Setup ===
+# The lobby world must be named "world"
+# and set as the default world in server.properties.
+
+# === ScoreHud Integration ===
+# This plugin includes ScoreHud tags for dynamic displays:
+# - Wins   → {pillars.wins}
+# - Coins  → {pillars.coins}
+
+# === Beta Notice ===
+# This plugin is currently in beta.
+# Some features may be unstable or incomplete.
+# Please report bugs to help improve development.
+
+# === Bug Reporting ===
+# Report issues at:
+# https://github.com/TheWindows
+
+# === Support ===
+# For assistance, contact us on Discord:
+#   Username → TheWindowsJava
+
+# === Appreciation ===
+# Thank you for installing Pillars of Fortune!
+# Your support helps make this project better.
+
+# === Configuration ===
+# Place your custom configuration settings below:
+settings: {}
