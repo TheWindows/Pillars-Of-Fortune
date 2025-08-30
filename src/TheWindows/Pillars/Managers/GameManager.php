@@ -30,26 +30,36 @@ class GameManager {
     private $playerStats = []; 
     private $gameStats = []; 
     private $marketItems = []; 
+    private $invulnerableWinners = [];
     
     public function __construct(Main $plugin) {
-        $this->plugin = $plugin;
-        $this->loadGames();
-        $this->loadPlayerStats();
+    $this->plugin = $plugin;
+    $this->loadGames();
+    $this->loadPlayerStats();
+    
+    $this->plugin->getScheduler()->scheduleRepeatingTask(new class($this) extends \pocketmine\scheduler\Task {
+        private $gameManager;
         
+        public function __construct(GameManager $gameManager) {
+            $this->gameManager = $gameManager;
+        }
         
-        $this->plugin->getScheduler()->scheduleRepeatingTask(new class($this) extends \pocketmine\scheduler\Task {
-            private $gameManager;
-            
-            public function __construct(GameManager $gameManager) {
-                $this->gameManager = $gameManager;
-            }
-            
-            public function onRun(): void {
-                $this->gameManager->updatePersistentActionBars();
-                $this->gameManager->ensureMarketItem();
-            }
-        }, 20);
+        public function onRun(): void {
+            $this->gameManager->updatePersistentActionBars();
+            $this->gameManager->ensureMarketItem();
+            $this->gameManager->cleanupExpiredInvulnerability();
+        }
+    }, 20);
+}
+
+public function cleanupExpiredInvulnerability(): void {
+    $currentTime = time();
+    foreach($this->invulnerableWinners as $playerId => $expiryTime) {
+        if($currentTime >= $expiryTime) {
+            unset($this->invulnerableWinners[$playerId]);
+        }
     }
+}
     
    private function loadPlayerStats(): void {
     $path = $this->plugin->getDataFolder() . "player_stats.json";
@@ -1165,40 +1175,44 @@ public function addPlayerToGame(Player $player, string $gameId): void {
 }
     
        public function checkGameEnd(string $gameId): void {
-        if(!isset($this->activeGames[$gameId])) return;
+    if(!isset($this->activeGames[$gameId])) return;
+    
+    $players = $this->activeGames[$gameId]['players'];
+    
+    if(count($players) === 1) {
+        $winner = reset($players);
+        if($winner->isOnline()) {
+            
+            $this->invulnerableWinners[$winner->getId()] = time() + 5; 
+            
+            $winner->sendTitle("§6§lVICTORY!", "§aYou won the game!", 10, 60, 10);
+            $winner->sendMessage("§aYou are invulnerable for 5 seconds before being teleported to lobby!");
+        }
         
-        $players = $this->activeGames[$gameId]['players'];
         
-        
-        if(count($players) === 1) {
-            $winner = reset($players);
-            if($winner->isOnline()) {
-                
-                $winner->sendTitle("§6§lVICTORY!", "§aYou won the game!", 10, 60, 10);
-                
+        $this->plugin->getScheduler()->scheduleDelayedTask(new class($this->plugin, $gameId) extends \pocketmine\scheduler\Task {
+            private $plugin;
+            private $gameId;
+            
+            public function __construct($plugin, $gameId) {
+                $this->plugin = $plugin;
+                $this->gameId = $gameId;
             }
             
-            
-            $this->plugin->getScheduler()->scheduleDelayedTask(new class($this->plugin, $gameId) extends \pocketmine\scheduler\Task {
-                private $plugin;
-                private $gameId;
-                
-                public function __construct($plugin, $gameId) {
-                    $this->plugin = $plugin;
-                    $this->gameId = $gameId;
-                }
-                
-                public function onRun(): void {
-                    $this->plugin->getGameManager()->endGame($this->gameId);
-                }
-            }, 20); 
-        }
-        
-        else if(count($players) === 0) {
-            $this->broadcastToGame($gameId, "§cGame ended with no winner!");
-            $this->endGame($gameId);
-        }
+            public function onRun(): void {
+                $this->plugin->getGameManager()->endGame($this->gameId);
+            }
+        }, 5 * 20); 
     }
+    else if(count($players) === 0) {
+        $this->broadcastToGame($gameId, "§cGame ended with no winner!");
+        $this->endGame($gameId);
+    }
+}
+public function isPlayerInvulnerable(Player $player): bool {
+    $playerId = $player->getId();
+    return isset($this->invulnerableWinners[$playerId]) && time() < $this->invulnerableWinners[$playerId];
+}
     
     public function showSpectatorMenu(Player $spectator): void {
         $gameId = $this->getPlayerGame($spectator);
@@ -1326,6 +1340,11 @@ public function removePlayerFromGame(Player $player): void {
 }
     
      public function teleportToLobby(Player $player): void {
+    
+    if(isset($this->invulnerableWinners[$player->getId()])) {
+        unset($this->invulnerableWinners[$player->getId()]);
+    }
+    
     $lobbyWorld = "world";
     $lobby = $this->plugin->getServer()->getWorldManager()->getWorldByName($lobbyWorld);
     
