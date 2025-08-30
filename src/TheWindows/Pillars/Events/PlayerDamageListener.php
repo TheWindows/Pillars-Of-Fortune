@@ -16,45 +16,63 @@ class PlayerDamageListener implements Listener {
     }
     
     public function onEntityDamage(EntityDamageEvent $event): void {
-        $entity = $event->getEntity();
+    $entity = $event->getEntity();
+    
+    if($entity instanceof Player) {
+        $gameManager = $this->plugin->getGameManager();
         
-        if($entity instanceof Player) {
-            $gameManager = $this->plugin->getGameManager();
-            $playerState = $gameManager->checkPlayerState($entity);
-            
-            
-            if($playerState === 'spectating') {
-                $event->cancel();
-                return;
-            }
-            
-            
-            if($playerState === 'waiting') {
-                $event->cancel();
-                return;
-            }
-            
-            
-            if($event instanceof EntityDamageByEntityEvent) {
-                $damager = $event->getDamager();
-                if($damager instanceof Player) {
-                    $damagerState = $gameManager->checkPlayerState($damager);
-                    if($damagerState === 'waiting' || $damagerState === 'spectating') {
-                        $event->cancel();
-                        return;
-                    }
+        
+        if($gameManager->isPlayerInvulnerable($entity)) {
+            $event->cancel();
+            return;
+        }
+        
+        $playerState = $gameManager->checkPlayerState($entity);
+        
+        
+        if($playerState === 'spectating') {
+            $event->cancel();
+            return;
+        }
+        
+        
+        if($playerState === 'waiting') {
+            $event->cancel();
+            return;
+        }
+        
+        
+        if($event instanceof EntityDamageByEntityEvent) {
+            $damager = $event->getDamager();
+            if($damager instanceof Player) {
+                
+                if($gameManager->isPlayerInvulnerable($damager)) {
+                    $event->cancel();
+                    return;
+                }
+                
+                $damagerState = $gameManager->checkPlayerState($damager);
+                if($damagerState === 'waiting' || $damagerState === 'spectating') {
+                    $event->cancel();
+                    return;
                 }
             }
-            
-            
-            if($playerState === 'playing') {
-                $newHealth = $entity->getHealth() - $event->getFinalDamage();
-                if($newHealth <= 0.1) {
-                    $event->cancel();
-                    $entity->setHealth($entity->getMaxHealth());
-                    $gameManager->handlePlayerDeath($entity, $gameManager->getPlayerGame($entity));
+        }
+        
+        
+        if($playerState === 'playing') {
+            $newHealth = $entity->getHealth() - $event->getFinalDamage();
+            if($newHealth <= 0.1) {
+                $event->cancel();
+                $entity->setHealth($entity->getMaxHealth());
+                
+                
+                $gameId = $gameManager->getPlayerGame($entity);
+                if($gameId !== null) {
+                    $gameManager->handlePlayerDeath($entity, $gameId);
                 }
             }
         }
     }
+}
 }
