@@ -1,0 +1,21 @@
+{
+  "name": "thewindows/pillars",
+  "version": "1.0.0",
+  "description": "Pillars Minigame",
+  "type": "project",
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/inxomnyaa/apibossbar"
+    }
+  ],
+  "require": {
+    "pocketmine/pocketmine-mp": "^5.0.0",
+    "inxomnyaa/apibossbar": "dev-pm5"
+  },
+  "autoload": {
+    "classmap": ["src"]
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

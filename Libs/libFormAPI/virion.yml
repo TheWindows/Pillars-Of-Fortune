@@ -1,0 +1,19 @@
+---
+name: libFormAPI
+author: jojoe77777
+api:
+- 4.0.0
+- 5.0.0
+version: 2.1.1
+antigen: jojoe77777\FormAPI
+build:
+  builder: PoggitCI/1.0-beta/beta poggit-virion/1.0
+  builderName: poggit
+  buildTime: "2023-10-08T18:27:23+00:00"
+  poggitBuildId: 166208
+  buildClass: Dev
+  projectId: 4250
+  projectBuildNumber: 6
+  fromCommit: ad0c9631b12fc37e8d9c39436d639058046b9dab
+  poggitResourceId: 226142
+...
