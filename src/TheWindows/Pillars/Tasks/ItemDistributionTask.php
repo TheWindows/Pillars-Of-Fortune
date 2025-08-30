@@ -34,7 +34,7 @@ class ItemDistributionTask extends Task {
                 $secondsLeft = ceil($this->timer / 20);
                 $bossBar = new BossBar();
                 $bossBar->setTitle("§cNext item in: §6{$secondsLeft}s");
-                $bossBar->setSubTitle("§8V1.0.0Beta");
+                $bossBar->setSubTitle("§8V1.0.1Beta");
                 $bossBar->setPercentage(1.0); 
                 $bossBar->setColor(2); 
                 $bossBar->addPlayer($player);
@@ -164,4 +164,5 @@ class ItemDistributionTask extends Task {
             $this->getHandler()->cancel();
         }
     }
+
 }
