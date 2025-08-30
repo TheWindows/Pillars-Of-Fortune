@@ -18,7 +18,6 @@ use TheWindows\Pillars\Commands\MainCommand;
 use TheWindows\Pillars\Events\PlayerInteractListener;
 use TheWindows\Pillars\Events\PlayerJoinListener;
 use TheWindows\Pillars\Events\PlayerQuitListener;
-use TheWindows\Pillars\Events\PlayerDeathListener;
 use TheWindows\Pillars\Events\PlayerDamageListener;
 
 class Main extends PluginBase {
@@ -30,7 +29,6 @@ class Main extends PluginBase {
     private $configManager;
     private $worldManager;
     private $scoreHUDManager;
-    private $playerDeathListener;
     private $mapManager;
     
     public static function getInstance(): Main {
@@ -71,9 +69,7 @@ class Main extends PluginBase {
         
         $this->getServer()->getCommandMap()->register("pillars", new MainCommand($this));
         
-        $this->playerDeathListener = new PlayerDeathListener($this);
         $this->getServer()->getPluginManager()->registerEvents(new PlayerDamageListener($this), $this);
-        $this->getServer()->getPluginManager()->registerEvents($this->playerDeathListener, $this);
         $this->getServer()->getPluginManager()->registerEvents(new PlayerInteractListener($this), $this);
         $this->getServer()->getPluginManager()->registerEvents(new PlayerJoinListener($this), $this);
         $this->getServer()->getPluginManager()->registerEvents(new PlayerQuitListener($this), $this);
@@ -157,10 +153,6 @@ class Main extends PluginBase {
     
     public function getScoreHUDManager(): ScoreHUDManager {
         return $this->scoreHUDManager;
-    }
-    
-    public function getPlayerDeathListener(): PlayerDeathListener {
-        return $this->playerDeathListener;
     }
     
     public function getMapManager(): MapManager {
