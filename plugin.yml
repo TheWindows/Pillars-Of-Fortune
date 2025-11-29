@@ -1,8 +1,12 @@
 name: Pillars 
 version: 1.0.1
+
 main: TheWindows\Pillars\Main
 api: 5.0.0
-author: TheWindows
+author: [TheWindows,xDqztPie]
+
+description: Brings the thrilling “Pillars of Fortune” feature to your PMMP server, adding dynamic gameplay, rewards, and an exciting progression system for your players!
+
 depend:
   - MultiWorld
 virions:
@@ -15,6 +19,7 @@ permissions:
   pillars.join:
     description: "Allows players to join Pillars games"
     default: true
+
 
 
 
