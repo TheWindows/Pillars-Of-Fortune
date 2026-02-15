@@ -11,7 +11,6 @@ use pocketmine\scheduler\Task;
 use pocketmine\world\particle\DustParticle;
 use pocketmine\color\Color;
 use pocketmine\math\Vector3;
-use pocketmine\utils\Config;
 use TheWindows\Pillars\Main;
 use TheWindows\Pillars\Entity\PillarsNPC;
 use SQLite3;
@@ -23,13 +22,125 @@ class NPCManager {
     private $knownNPCs = [];
     private $rotationTask;
     private $database;
+    private $lookAtPlayers = [];
+    private $particlesEnabled = true;
+    private $particleStyle = 'rotating_ring';
+    private $particleColor = 7;
+    private $particleSpeed = 5;
+    private $particleDensity = 6;
+    private $colors = [];
     
     public function __construct(Main $plugin) {
         $this->plugin = $plugin;
+        $this->initColors();
+        $this->loadConfig();
         $this->initDatabase();
         $this->loadNPCs();
         $this->spawnAllNPCs();
         $this->startRotationTask();
+    }
+    
+    private function initColors(): void {
+        $this->colors = [
+            new Color(255, 0, 0),
+            new Color(0, 255, 0),
+            new Color(0, 0, 255),
+            new Color(255, 255, 0),
+            new Color(255, 0, 255),
+            new Color(255, 165, 0),
+            new Color(255, 255, 255),
+        ];
+    }
+    
+    private function loadConfig(): void {
+        $config = $this->plugin->getConfig();
+        $settings = $config->get("settings", []);
+        $particleSettings = $settings["npc_particles"] ?? [];
+        $this->particlesEnabled = $particleSettings["enabled"] ?? true;
+        $this->particleStyle = $particleSettings["style"] ?? 'rotating_ring';
+        $this->particleColor = $particleSettings["color"] ?? 7;
+        $this->particleSpeed = $particleSettings["speed"] ?? 5;
+        $this->particleDensity = $particleSettings["density"] ?? 6;
+    }
+    
+    public function saveConfig(): void {
+        $config = $this->plugin->getConfig();
+        $settings = $config->get("settings", []);
+    
+        if (!isset($settings["npc_particles"])) {
+            $settings["npc_particles"] = [];
+        }
+    
+        $settings["npc_particles"]["enabled"] = $this->particlesEnabled;
+        $settings["npc_particles"]["style"] = $this->particleStyle;
+        $settings["npc_particles"]["color"] = $this->particleColor;
+        $settings["npc_particles"]["speed"] = $this->particleSpeed;
+        $settings["npc_particles"]["density"] = $this->particleDensity;
+    
+        $config->set("settings", $settings);
+        $config->save();
+    }
+    
+    public function setParticlesEnabled(bool $enabled): void {
+        $this->particlesEnabled = $enabled;
+        $this->saveConfig();
+    }
+    
+    public function isParticlesEnabled(): bool {
+        return $this->particlesEnabled;
+    }
+    
+    public function setParticleStyle(string $style): void {
+        $this->particleStyle = $style;
+    }
+    
+    public function getParticleStyle(): string {
+        return $this->particleStyle;
+    }
+    
+    public function getParticleStyleIndex(): int {
+        $styles = ['rotating_ring', 'spiral', 'double_helix', 'pulse', 'rain', 'crown'];
+        return array_search($this->particleStyle, $styles) ?: 0;
+    }
+    
+    public function setParticleColor(int $color): void {
+        $this->particleColor = $color;
+    }
+    
+    public function getParticleColorIndex(): int {
+        return $this->particleColor;
+    }
+    
+    public function setParticleSpeed(float $speed): void {
+        $this->particleSpeed = (int)$speed;
+    }
+    
+    public function getParticleSpeed(): int {
+        return $this->particleSpeed;
+    }
+    
+    public function setParticleDensity(int $density): void {
+        $this->particleDensity = $density;
+    }
+    
+    public function getParticleDensity(): int {
+        return $this->particleDensity;
+    }
+    
+    public function getParticleColor(int $index = -1): Color {
+        if ($this->particleColor === 7) {
+            $rainbowColors = [
+                new Color(255, 0, 0),
+                new Color(255, 127, 0),
+                new Color(255, 255, 0),
+                new Color(0, 255, 0),
+                new Color(0, 0, 255),
+                new Color(75, 0, 130),
+                new Color(148, 0, 211)
+            ];
+            return $rainbowColors[$index % count($rainbowColors)];
+        }
+        return $this->colors[$this->particleColor] ?? $this->colors[0];
     }
     
     private function initDatabase(): void {
@@ -63,7 +174,6 @@ class NPCManager {
             if (!in_array($column, $existingColumns)) {
                 $type = ($column === 'skin_data' || $column === 'cape_data') ? 'BLOB' : 'TEXT';
                 $this->database->exec("ALTER TABLE npcs ADD COLUMN $column $type");
-                $this->plugin->getLogger()->info("Added $column column to npcs table");
             }
         }
     }
@@ -77,94 +187,267 @@ class NPCManager {
     }
     
     public function startRotationTask(): void {
-        $this->rotationTask = $this->plugin->getScheduler()->scheduleRepeatingTask(new class($this->plugin) extends Task {
-            private $plugin;
-            private array $colors;
-            private int $colorIndex = 0;
+        $this->rotationTask = $this->plugin->getScheduler()->scheduleRepeatingTask(new class($this) extends Task {
+            private $npcManager;
             private int $tick = 0;
-            private int $spiralDirection = 1;
             
-            public function __construct(Main $plugin) {
-                $this->plugin = $plugin;
-                $this->colors = [
-                    new Color(200, 200, 200), 
-                    new Color(0, 255, 0), 
-                    new Color(255, 0, 0), 
-                    new Color(255, 255, 0) 
-                ];
+            public function __construct(NPCManager $npcManager) {
+                $this->npcManager = $npcManager;
             }
             
             public function onRun(): void {
                 $this->tick++;
-                if ($this->tick % 40 === 0) {
-                    $this->colorIndex = ($this->colorIndex + 1) % count($this->colors);
-                }
-                if ($this->tick % 200 === 0) {
-                    $this->spiralDirection = -$this->spiralDirection;
-                }
                 
-                $npcManager = $this->plugin->getNPCManager();
-                $npcManager->cleanKnownNPCs();
-                foreach ($npcManager->getKnownNPCs() as $entity) {
-                    $npcManager->rotateNPC($entity);
-                    $this->spawnParticles($entity);
+                $this->npcManager->cleanKnownNPCs();
+                foreach ($this->npcManager->getKnownNPCs() as $entity) {
+                    $this->npcManager->updateNPCRotations($entity);
+                    if ($this->tick % 2 === 0 && $this->npcManager->isParticlesEnabled()) {
+                        $this->spawnParticles($entity);
+                    }
                 }
             }
             
             private function spawnParticles(Entity $entity): void {
                 $pos = $entity->getPosition();
                 $world = $entity->getWorld();
-                $radius = 0.5;
-                $helixHeight = $entity->getScale() * 2.0;
-                $steps = 32;
-                $angleStep = (2 * M_PI) / ($steps / 4); 
-                $heightStep = $helixHeight / $steps;
-                $angleOffset = $this->tick * 0.2 * $this->spiralDirection;
+                $style = $this->npcManager->getParticleStyle();
+                $speed = $this->npcManager->getParticleSpeed() / 2;
+                $density = $this->npcManager->getParticleDensity();
                 
-                for ($i = 0; $i < $steps; $i++) {
-                    $frac = $i / $steps;
-                    if ($this->spiralDirection === -1) {
-                        $frac = 1 - $frac;
-                    }
-                    $angle = $frac * (4 * 2 * M_PI) + $angleOffset;
-                    $x = $radius * cos($angle);
-                    $z = $radius * sin($angle);
-                    $h = $pos->y + $frac * $helixHeight;
-                    $ppos = new Vector3($pos->x + $x, $h, $pos->z + $z);
-                    $colorIndex = $i % count($this->colors);
-                    $particle = new DustParticle($this->colors[$colorIndex]);
-                    $world->addParticle($ppos, $particle);
+                switch($style) {
+                    case 'rotating_ring':
+                        $this->spawnRotatingRing($pos, $world, $density, $speed);
+                        break;
+                    case 'spiral':
+                        $this->spawnSpiral($pos, $world, $density, $speed);
+                        break;
+                    case 'double_helix':
+                        $this->spawnDoubleHelix($pos, $world, $density, $speed);
+                        break;
+                    case 'pulse':
+                        $this->spawnPulse($pos, $world, $density, $speed);
+                        break;
+                    case 'rain':
+                        $this->spawnRain($pos, $world, $density, $speed);
+                        break;
+                    case 'crown':
+                        $this->spawnCrown($pos, $world, $density, $speed);
+                        break;
                 }
             }
-        }, 20); 
+            
+            private function spawnRotatingRing(Vector3 $pos, $world, int $density, float $speed): void {
+                for ($i = 0; $i < $density; $i++) {
+                    $angle = ($i * (360 / $density)) + ($this->tick * $speed);
+                    $radians = deg2rad($angle);
+                    $x = 0.8 * cos($radians);
+                    $z = 0.8 * sin($radians);
+                    $yOffset = sin(deg2rad($this->tick * 6)) * 0.5;
+                    
+                    $ppos = new Vector3($pos->x + $x, $pos->y + 1.2 + $yOffset, $pos->z + $z);
+                    $color = $this->npcManager->getParticleColor($i);
+                    $world->addParticle($ppos, new DustParticle($color));
+                }
+            }
+            
+            private function spawnSpiral(Vector3 $pos, $world, int $density, float $speed): void {
+                for ($i = 0; $i < $density; $i++) {
+                    $progress = $i / $density;
+                    $angle = ($progress * 360 * 2) + ($this->tick * $speed);
+                    $radians = deg2rad($angle);
+                    $x = 0.8 * cos($radians);
+                    $z = 0.8 * sin($radians);
+                    $yOffset = $progress * 1.5;
+                    
+                    $ppos = new Vector3($pos->x + $x, $pos->y + 0.5 + $yOffset, $pos->z + $z);
+                    $color = $this->npcManager->getParticleColor($i);
+                    $world->addParticle($ppos, new DustParticle($color));
+                }
+            }
+            
+            private function spawnDoubleHelix(Vector3 $pos, $world, int $density, float $speed): void {
+                for ($i = 0; $i < $density; $i++) {
+                    $progress = $i / $density;
+                    $angle1 = ($progress * 360 * 2) + ($this->tick * $speed);
+                    $angle2 = $angle1 + 180;
+                    
+                    $radians1 = deg2rad($angle1);
+                    $radians2 = deg2rad($angle2);
+                    
+                    $x1 = 0.7 * cos($radians1);
+                    $z1 = 0.7 * sin($radians1);
+                    $x2 = 0.7 * cos($radians2);
+                    $z2 = 0.7 * sin($radians2);
+                    
+                    $yOffset = $progress * 1.5;
+                    
+                    $ppos1 = new Vector3($pos->x + $x1, $pos->y + 0.5 + $yOffset, $pos->z + $z1);
+                    $ppos2 = new Vector3($pos->x + $x2, $pos->y + 0.5 + $yOffset, $pos->z + $z2);
+                    
+                    $color1 = $this->npcManager->getParticleColor($i * 2);
+                    $color2 = $this->npcManager->getParticleColor($i * 2 + 1);
+                    
+                    $world->addParticle($ppos1, new DustParticle($color1));
+                    $world->addParticle($ppos2, new DustParticle($color2));
+                }
+            }
+            
+            private function spawnPulse(Vector3 $pos, $world, int $density, float $speed): void {
+                $pulseSize = 0.5 + (sin(deg2rad($this->tick * $speed * 2)) * 0.3);
+                
+                for ($i = 0; $i < $density; $i++) {
+                    $angle = ($i * (360 / $density));
+                    $radians = deg2rad($angle);
+                    $x = $pulseSize * cos($radians);
+                    $z = $pulseSize * sin($radians);
+                    
+                    $ppos = new Vector3($pos->x + $x, $pos->y + 1.2, $pos->z + $z);
+                    $color = $this->npcManager->getParticleColor($i);
+                    $world->addParticle($ppos, new DustParticle($color));
+                }
+            }
+            
+            private function spawnRain(Vector3 $pos, $world, int $density, float $speed): void {
+                for ($i = 0; $i < $density; $i++) {
+                    $offset = ($i / $density) * 360;
+                    $x = 1.2 * sin(deg2rad($this->tick * $speed + $offset));
+                    $z = 1.2 * cos(deg2rad($this->tick * $speed + $offset));
+                    $yOffset = ($this->tick % 40) / 20;
+                    
+                    $ppos = new Vector3($pos->x + $x, $pos->y + 2.0 - $yOffset, $pos->z + $z);
+                    $color = $this->npcManager->getParticleColor($i);
+                    $world->addParticle($ppos, new DustParticle($color));
+                }
+            }
+            
+            private function spawnCrown(Vector3 $pos, $world, int $density, float $speed): void {
+                for ($i = 0; $i < $density; $i++) {
+                    $angle = ($i * (360 / $density)) + ($this->tick * $speed);
+                    $radians = deg2rad($angle);
+                    
+                    if ($i % 2 === 0) {
+                        $x = 0.9 * cos($radians);
+                        $z = 0.9 * sin($radians);
+                        $yOffset = 1.5;
+                    } else {
+                        $x = 0.5 * cos($radians);
+                        $z = 0.5 * sin($radians);
+                        $yOffset = 1.0;
+                    }
+                    
+                    $ppos = new Vector3($pos->x + $x, $pos->y + $yOffset, $pos->z + $z);
+                    $color = $this->npcManager->getParticleColor($i);
+                    $world->addParticle($ppos, new DustParticle($color));
+                }
+            }
+        }, 1);
     }
     
-    public function rotateNPC(Entity $npc): void {
-        $players = $npc->getWorld()->getPlayers();
-        $closestPlayer = null;
-        $closestDistance = 10.0; 
+    public function updateNPCRotations(Entity $npc): void {
+        $world = $npc->getWorld();
+        $players = $world->getPlayers();
+        $lookRange = 15.0;
         
-        forEach ($players as $player) {
+        foreach ($players as $player) {
             $distance = $npc->getPosition()->distance($player->getPosition());
-            if ($distance < $closestDistance) {
-                $closestDistance = $distance;
-                $closestPlayer = $player;
+            
+            if ($distance <= $lookRange) {
+                $xDiff = $player->getPosition()->x - $npc->getPosition()->x;
+                $zDiff = $player->getPosition()->z - $npc->getPosition()->z;
+                $yaw = rad2deg(atan2($zDiff, $xDiff)) - 90;
+                
+                $this->lookAtPlayers[$player->getId()][$npc->getId()] = $yaw;
+            } else {
+                if (isset($this->lookAtPlayers[$player->getId()][$npc->getId()])) {
+                    unset($this->lookAtPlayers[$player->getId()][$npc->getId()]);
+                }
             }
         }
         
-        if ($closestPlayer !== null) {
-            $xDiff = $closestPlayer->getPosition()->x - $npc->getPosition()->x;
-            $zDiff = $closestPlayer->getPosition()->z - $npc->getPosition()->z;
-            
-            $yaw = atan2($zDiff, $xDiff) * 180 / M_PI - 90;
-            $npc->setRotation($yaw, 0);
+        foreach ($players as $player) {
+            if (isset($this->lookAtPlayers[$player->getId()][$npc->getId()])) {
+                $yaw = $this->lookAtPlayers[$player->getId()][$npc->getId()];
+                $npc->setRotation($yaw, 0);
+            }
         }
     }
+    
+    public function spawnNPCsInWorld(string $worldName): void {
+    $this->plugin->getLogger()->info("Attempting to spawn NPCs in world: " . $worldName);
+    
+    $worldManager = $this->plugin->getServer()->getWorldManager();
+    $world = $worldManager->getWorldByName($worldName);
+    
+    if ($world === null) {
+        $this->plugin->getLogger()->warning("Cannot spawn NPCs in world $worldName: world not loaded");
+        return;
+    }
+    
+    $count = 0;
+    foreach ($this->npcs as $id => $npcData) {
+        if ($npcData['world'] === $worldName) {
+            $this->plugin->getLogger()->info("Found NPC #$id for world $worldName at {$npcData['x']}, {$npcData['y']}, {$npcData['z']}");
+            
+            $location = new Location(
+                (float)$npcData['x'],
+                (float)$npcData['y'],
+                (float)$npcData['z'],
+                $world,
+                (float)($npcData['yaw'] ?? 0),
+                (float)($npcData['pitch'] ?? 0)
+            );
+
+            $nbt = CompoundTag::create()
+                ->setString("CustomName", "§4Pillars Minigame\n§7Click To Join")
+                ->setByte("CustomNameVisible", 1)
+                ->setByte("NoAI", 1)
+                ->setByte("Silent", 1)
+                ->setByte("Invulnerable", 1)
+                ->setByte("NoGravity", 1)
+                ->setByte("Immobile", 1)
+                ->setFloat("Scale", (float)($npcData['scale'] ?? 1.5))
+                ->setTag("Pos", new ListTag([
+                    new FloatTag((float)$npcData['x']),
+                    new FloatTag((float)$npcData['y']),
+                    new FloatTag((float)$npcData['z'])
+                ]))
+                ->setTag("Rotation", new ListTag([
+                    new FloatTag((float)($npcData['yaw'] ?? 0)),
+                    new FloatTag((float)($npcData['pitch'] ?? 0))
+                ]));
+
+            try {
+                $skinData = $npcData['skin_data'] ?? str_repeat("\x00\x00\x00\x00", 64 * 64);
+                $skin = new \pocketmine\entity\Skin(
+                    $npcData['skin_id'] ?? 'Standard_Custom',
+                    $skinData,
+                    $npcData['cape_data'] ?? '',
+                    $npcData['geometry_name'] ?? 'geometry.humanoid.custom',
+                    $npcData['geometry_data'] ?? '{"geometry":{"default":"geometry.humanoid.custom"}}'
+                );
+                
+                $entity = new PillarsNPC($location, $skin, $nbt);
+                $entity->setNameTag("§4Pillars Minigame\n§7Click To Join");
+                $entity->setNameTagAlwaysVisible(true);
+                $entity->setScale((float)($npcData['scale'] ?? 1.5));
+                $entity->setNoClientPredictions(true);
+                $entity->setCanSaveWithChunk(false);
+                
+                $entity->spawnToAll();
+                $this->knownNPCs[] = $entity;
+                $count++;
+                
+            } catch (\Exception $e) {
+                $this->plugin->getLogger()->error("Failed to spawn NPC in world $worldName: " . $e->getMessage());
+            }
+        }
+    }
+    $this->plugin->getLogger()->info("Spawned $count NPCs in world $worldName");
+}
     
     public function createNPC(Player $player): void {
         try {
             $location = $player->getLocation();
-            
             
             $x = $location->getX();
             $y = $location->getY();
@@ -179,10 +462,6 @@ class NPCManager {
             $geometryName = $skin->getGeometryName();
             $geometryData = $skin->getGeometryData();
 
-            
-            $this->plugin->getLogger()->debug("Creating NPC with skin_id: $skinId, skin_data size: " . strlen($skinData) . ", cape_data size: " . strlen($capeData) . ", geometry_name: $geometryName");
-
-            
             $exactLocation = new Location($x, $y, $z, $location->getWorld(), $yaw, $pitch);
 
             $nbt = CompoundTag::create()
@@ -213,7 +492,6 @@ class NPCManager {
             
             $entity->spawnToAll();
 
-            
             $stmt = $this->database->prepare("
                 INSERT INTO npcs (world, x, y, z, yaw, pitch, scale, skin_id, skin_data, cape_data, geometry_name, geometry_data)
                 VALUES (:world, :x, :y, :z, :yaw, :pitch, :scale, :skin_id, :skin_data, :cape_data, :geometry_name, :geometry_data)
@@ -233,7 +511,6 @@ class NPCManager {
             $stmt->execute();
             
             $npcId = $this->database->lastInsertRowID();
-            
             
             $npcData = [
                 'id' => $npcId,
@@ -287,7 +564,6 @@ class NPCManager {
             }
         }
         
-        
         $stmt = $this->database->prepare("DELETE FROM npcs WHERE id = :id");
         $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
         $stmt->execute();
@@ -310,11 +586,11 @@ class NPCManager {
             }
         }
         
-        
         $this->database->exec("DELETE FROM npcs");
         
         $this->npcs = [];
         $this->knownNPCs = [];
+        $this->lookAtPlayers = [];
     }
     
     public function getNPCs(): array {
@@ -337,29 +613,19 @@ class NPCManager {
                     'pitch' => (float)$row['pitch'],
                     'scale' => (float)$row['scale'],
                     'skin_id' => $row['skin_id'] ?? 'Standard_Custom',
-                    'skin_data' => $row['skin_data'] ?? null,
+                    'skin_data' => $row['skin_data'] ?? str_repeat("\x00\x00\x00\x00", 64 * 64),
                     'cape_data' => $row['cape_data'] ?? '',
                     'geometry_name' => $row['geometry_name'] ?? 'geometry.humanoid.custom',
-                    'geometry_data' => $row['geometry_data'] ?? '{
-                        "geometry": {
-                            "default": "geometry.humanoid.custom"
-                        }
-                    }'
+                    'geometry_data' => $row['geometry_data'] ?? '{"geometry":{"default":"geometry.humanoid.custom"}}'
                 ];
                 $this->npcs[$row['id']] = $npcData;
-                
-                $this->plugin->getLogger()->debug("Loaded NPC ID {$row['id']} with skin_id: {$npcData['skin_id']}, skin_data size: " . ($npcData['skin_data'] ? strlen($npcData['skin_data']) : 'NULL') . ", cape_data size: " . strlen($npcData['cape_data']));
             }
-            $this->plugin->getLogger()->info("Loaded " . count($this->npcs) . " NPCs from database");
-        } else {
-            $this->plugin->getLogger()->info("No NPCs found in database");
         }
     }
     
     public function spawnAllNPCs(): void {
         $count = 0;
         $worldManager = $this->plugin->getServer()->getWorldManager();
-        
         
         foreach ($worldManager->getWorlds() as $world) {
             foreach ($world->getEntities() as $entity) {
@@ -377,16 +643,13 @@ class NPCManager {
             if (!$worldManager->isWorldLoaded($worldName)) {
                 try {
                     $worldManager->loadWorld($worldName, true);
-                    $this->plugin->getLogger()->info("Loaded world '$worldName' for NPC spawning");
                 } catch (\Exception $e) {
-                    $this->plugin->getLogger()->error("Failed to load world '$worldName': " . $e->getMessage());
                     continue;
                 }
             }
 
             $world = $worldManager->getWorldByName($worldName);
             if ($world === null) {
-                $this->plugin->getLogger()->error("World '$worldName' not found for NPC at x: {$npcData['x']}, y: {$npcData['y']}, z: {$npcData['z']}");
                 continue;
             }
 
@@ -419,34 +682,14 @@ class NPCManager {
                 ]));
 
             try {
-                
-                $skinData = $npcData['skin_data'] ?? str_repeat("\x6D\x4E\x3A\xFF", 64 * 64); 
+                $skinData = $npcData['skin_data'] ?? str_repeat("\x00\x00\x00\x00", 64 * 64);
                 $skin = new \pocketmine\entity\Skin(
                     $npcData['skin_id'] ?? 'Standard_Custom',
                     $skinData,
                     $npcData['cape_data'] ?? '',
                     $npcData['geometry_name'] ?? 'geometry.humanoid.custom',
-                    $npcData['geometry_data'] ?? '{
-                        "geometry": {
-                            "default": "geometry.humanoid.custom"
-                        }
-                    }'
+                    $npcData['geometry_data'] ?? '{"geometry":{"default":"geometry.humanoid.custom"}}'
                 );
-                
-                if (strlen($skinData) < 64 * 64 * 4) {
-                    $this->plugin->getLogger()->warning("Invalid skin_data size for NPC ID $id: " . strlen($skinData) . " bytes, using fallback skin");
-                    $skin = new \pocketmine\entity\Skin(
-                        'Standard_Custom',
-                        str_repeat("\x6D\x4E\x3A\xFF", 64 * 64),
-                        '',
-                        'geometry.humanoid.custom',
-                        '{
-                            "geometry": {
-                                "default": "geometry.humanoid.custom"
-                            }
-                        }'
-                    );
-                }
                 
                 $entity = new PillarsNPC($location, $skin, $nbt);
                 $entity->setNameTag("§4Pillars Minigame\n§7Click To Join");
@@ -459,14 +702,10 @@ class NPCManager {
                 $this->knownNPCs[] = $entity;
                 $count++;
                 
-                $this->plugin->getLogger()->info("Spawned NPC at x: {$npcData['x']}, y: {$npcData['y']}, z: {$npcData['z']} in world: $worldName");
-                $this->plugin->getLogger()->info("NPC ID: $id, Entity ID: " . $entity->getId());
-                
             } catch (\Exception $e) {
-                $this->plugin->getLogger()->error("Failed to spawn NPC at x: {$npcData['x']}, y: {$npcData['y']}, z: {$npcData['z']} in world: $worldName: " . $e->getMessage());
+                $this->plugin->getLogger()->error("Failed to spawn NPC: " . $e->getMessage());
             }
         }
-        $this->plugin->getLogger()->info("Spawned $count NPCs on server start");
     }
     
     public function cleanup(): void {
