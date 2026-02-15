@@ -1670,7 +1670,6 @@ class GameManager {
         }
         
         $this->broadcastToGame($gameId, "§6§l-----------------------");
-        $this->broadcastToGame($gameId, "§aPersonal Stats:");
         
         foreach($allGamePlayers as $username => $playerData) {
             $player = $playerData['player'];
