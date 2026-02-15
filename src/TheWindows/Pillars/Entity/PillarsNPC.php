@@ -23,7 +23,6 @@ class PillarsNPC extends Human {
         $this->plugin = Main::getInstance();
         $this->fixedPosition = $location->asVector3();
         
-        
         $this->setNameTag("§4Pillars Minigame\n§7Click To Join");
         $this->setNameTagAlwaysVisible(true);
         $this->setScale(1.5);
@@ -62,7 +61,6 @@ class PillarsNPC extends Human {
     }
 
     public function onUpdate(int $currentTick): bool {
-        
         if ($this->fixedPosition !== null) {
             $this->setPosition($this->fixedPosition);
             $this->updateMovement();
@@ -79,7 +77,6 @@ class PillarsNPC extends Human {
     }
 
     public function setMotion(Vector3 $motion): bool {
-        
         return false;
     }
 
