@@ -1,5 +1,5 @@
 name: Pillars 
-version: 1.0.1
+version: 1.0.2
 
 main: TheWindows\Pillars\Main
 api: 5.0.0
@@ -19,6 +19,7 @@ permissions:
   pillars.join:
     description: "Allows players to join Pillars games"
     default: true
+
 
 
 
