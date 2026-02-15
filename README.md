@@ -5,7 +5,7 @@
 <img width="1366" height="687" alt="Screenshot 2025-08-28 125714" src="https://github.com/user-attachments/assets/000d3252-61b3-4ace-abc8-ea76b3735903" />
 
 
-**Pillars of Fortune** is an exciting Minecraft Bedrock minigame plugin that delivers fast-paced, competitive gameplay to your server. Developed by **TheWindows**, this plugin is currently in **beta (v1.0.0)** and provides managing dynamic game worlds, interactive forms, scoreboards, and NPCs. Whether you're a player diving into thrilling battles or an admin crafting unique experiences, Pillars of Fortune is designed for you!
+**Pillars of Fortune** is an exciting Minecraft Bedrock minigame plugin that delivers fast-paced, competitive gameplay to your server. Developed by **TheWindows**, this plugin is currently in **beta (v1.0.2)** and provides managing dynamic game worlds, interactive forms, scoreboards, and NPCs. Whether you're a player diving into thrilling battles or an admin crafting unique experiences, Pillars of Fortune is designed for you!
 
 ## Features
 
@@ -75,7 +75,7 @@ The plugin uses a simple permission system to control command access:
 
 ## Beta Notice
 
-Pillars of Fortune is in **beta (v1.0.0)**. While we aim for stability, some features may be incomplete or unstable. Your feedback is crucial for improvement!
+Pillars of Fortune is in **beta (v1.0.2)**. While we aim for stability, some features may be incomplete or unstable. Your feedback is crucial for improvement!
 
 - **Report Bugs**: Submit issues at [GitHub Issues](https://github.com/TheWindows/Pillars-of-Fortune/issues).
 - **Get Support**: Join our community on Discord (Username: **TheWindowsJava**).
