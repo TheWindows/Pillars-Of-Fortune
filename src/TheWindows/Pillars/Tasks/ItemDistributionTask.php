@@ -24,10 +24,8 @@ class ItemDistributionTask extends Task {
         $this->gameId = $gameId;
         $this->maxPlayers = $maxPlayers;
         
-        
         $this->itemInterval = $this->plugin->getConfigManager()->getMapSetting($gameId, "item-interval", 600);
         $this->timer = $this->itemInterval; 
-        
         
         foreach($players as $player) {
             if($player->isOnline()) {
@@ -47,7 +45,6 @@ class ItemDistributionTask extends Task {
     
     $this->timer--;
     
-    
     $onlinePlayers = [];
     foreach($this->players as $player) {
         if($player->isOnline() && !$player->isClosed()) {
@@ -60,17 +57,14 @@ class ItemDistributionTask extends Task {
     }
     $this->players = $onlinePlayers;
     
-    
     if(count($this->players) <= 1) {
         $this->plugin->getGameManager()->endGame($this->gameId);
         $this->cancel();
         return;
     }
     
-    
     $secondsLeft = ceil($this->timer / 20);
     $percentage = max(0.0, min(1.0, $this->timer / $this->itemInterval));
-    
     
     if($this->timer <= 0) {
         $this->distributeRandomItems();
@@ -79,7 +73,6 @@ class ItemDistributionTask extends Task {
         $percentage = 1.0;
     }
     
-    
     $this->updateBossBars($percentage, "§cNext item in: §6{$secondsLeft}s");
 }
     
@@ -87,13 +80,11 @@ class ItemDistributionTask extends Task {
         
         $possibleItems = [];
         
-        
         foreach (VanillaItems::getAll() as $item) {
             if ($item->getName() !== "Air" && !$item->isNull()) {
                 $possibleItems[] = $item;
             }
         }
-        
         
         foreach (VanillaBlocks::getAll() as $block) {
             $item = $block->asItem();
@@ -101,7 +92,6 @@ class ItemDistributionTask extends Task {
                 $possibleItems[] = $item;
             }
         }
-        
         
         if (empty($possibleItems)) {
             $this->plugin->getLogger()->warning("No valid items or blocks available for distribution in game {$this->gameId}");
@@ -113,15 +103,21 @@ class ItemDistributionTask extends Task {
                 
                 $randomItem = clone $possibleItems[array_rand($possibleItems)];
                 
-                
                 $randomItem->setCount(1);
                 
+                $inventory = $player->getInventory();
                 
-                $player->getInventory()->addItem($randomItem);
-                
-                
-                $itemName = $randomItem->getName();
-                $player->sendMessage("§aYou received a §e{$itemName}§a!");
+                if ($inventory->canAddItem($randomItem)) {
+                    $inventory->addItem($randomItem);
+                    $itemName = $randomItem->getName();
+                    $player->sendMessage("§aYou received a §e{$itemName}§a!");
+                } else {
+                    $position = $player->getPosition();
+                    $world = $player->getWorld();
+                    $world->dropItem($position, $randomItem);
+                    $itemName = $randomItem->getName();
+                    $player->sendMessage("§cYour inventory is full! A §e{$itemName} §cdropped on the ground.");
+                }
             }
         }
     }
