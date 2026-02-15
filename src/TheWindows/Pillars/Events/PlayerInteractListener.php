@@ -23,6 +23,9 @@ use TheWindows\Pillars\Forms\GameMenuForm;
 class PlayerInteractListener implements Listener {
     
     private $plugin;
+    private $lastGameMenuInteract = [];
+    private $lastMarketInteract = [];
+    private $lastSpectatorFormOpen = [];
     
     public function __construct(Main $plugin) {
         $this->plugin = $plugin;
@@ -33,10 +36,6 @@ class PlayerInteractListener implements Listener {
         $item = $event->getItem();
         $action = $event->getAction();
         
-        
-    
-        
-        
         if (in_array($action, [0, 1, 2, 3])) {
             $isSpectatorItem = $this->handleSpectatorItems($player, $item);
             if ($isSpectatorItem) {
@@ -45,19 +44,48 @@ class PlayerInteractListener implements Listener {
             }
         }
         
-        
         $playerState = $this->plugin->getGameManager()->checkPlayerState($player);
         if ($playerState === 'spectating') {
             $event->cancel();
             return;
         }
         
-        
-    $lobbyWorld = "world";
-    if ($player->getWorld()->getFolderName() === $lobbyWorld) {
-        return;
-    }
-        
+        $lobbyWorld = "world";
+        if ($player->getWorld()->getFolderName() === $lobbyWorld && $playerState === null) {
+            $config = $this->plugin->getConfig();
+            $settings = $config->get("settings", []);
+            
+            $gameMenuSettings = $settings["game_menu"] ?? ["name" => "§4Game Menu §7(Right Click)"];
+            $marketSettings = $settings["market"] ?? ["name" => "§d§lMarket §7(Right Click)"];
+            
+            if ($item->getCustomName() === $gameMenuSettings["name"]) {
+                $now = time();
+                if (isset($this->lastGameMenuInteract[$player->getId()]) && ($now - $this->lastGameMenuInteract[$player->getId()]) < 1) {
+                    $event->cancel();
+                    return;
+                }
+                $this->lastGameMenuInteract[$player->getId()] = $now;
+                
+                $form = GameMenuForm::createForm($this->plugin, $player);
+                $player->sendForm($form);
+                $event->cancel();
+                return;
+            }
+            
+            if ($item->getCustomName() === $marketSettings["name"]) {
+                $now = time();
+                if (isset($this->lastMarketInteract[$player->getId()]) && ($now - $this->lastMarketInteract[$player->getId()]) < 1) {
+                    $event->cancel();
+                    return;
+                }
+                $this->lastMarketInteract[$player->getId()] = $now;
+                
+                $form = \TheWindows\Pillars\Forms\MarketForm::createForm();
+                $player->sendForm($form);
+                $event->cancel();
+                return;
+            }
+        }
         
         if ($action === 1 && $player->hasPermission("pillars.admin")) {
             $block = $event->getBlock();
@@ -135,10 +163,8 @@ class PlayerInteractListener implements Listener {
             return false;
         }
         
-        
         $leaveGameItem = VanillaBlocks::BED()->setColor(DyeColor::RED())->asItem()->setCustomName("§cLeave Game");
         $spectateItem = VanillaItems::COMPASS()->setCustomName("§bSpectate Players");
-        
         
         if ($item->equals($leaveGameItem, true, true) && $item->getCustomName() === "§cLeave Game") {
             $this->plugin->getGameManager()->removePlayerFromGame($player);
@@ -146,12 +172,16 @@ class PlayerInteractListener implements Listener {
             return true;
         }
         
-        
         if ($item->equals($spectateItem, true, true) && $item->getCustomName() === "§bSpectate Players") {
+            $now = time();
+            if (isset($this->lastSpectatorFormOpen[$player->getId()]) && ($now - $this->lastSpectatorFormOpen[$player->getId()]) < 1) {
+                return true;
+            }
+            $this->lastSpectatorFormOpen[$player->getId()] = $now;
+            
             $gameId = $this->plugin->getGameManager()->getPlayerGame($player);
             if ($gameId !== null) {
                 $this->plugin->getGameManager()->showSpectatorMenu($player);
-            } else {
             }
             return true;
         }
@@ -160,23 +190,23 @@ class PlayerInteractListener implements Listener {
     }
     
     private function teleportToLobbyAndCleanup(Player $player): void {
-    $player->getInventory()->remove(VanillaItems::BLAZE_ROD());
-    $player->getInventory()->remove(VanillaItems::REDSTONE_DUST());
-    
-    $lobbyWorld = "world";
-    $lobby = $this->plugin->getServer()->getWorldManager()->getWorldByName($lobbyWorld);
-    
-    if ($lobby !== null) {
-        $player->teleport($lobby->getSpawnLocation());
-        $player->sendMessage("§aMap setup completed! You've been returned to the lobby.");
-    } else {
-        $defaultWorld = $this->plugin->getServer()->getWorldManager()->getDefaultWorld();
-        if ($defaultWorld !== null) {
-            $player->teleport($defaultWorld->getSpawnLocation());
-            $player->sendMessage("§aMap setup completed! You've been returned to the default world.");
+        $player->getInventory()->remove(VanillaItems::BLAZE_ROD());
+        $player->getInventory()->remove(VanillaItems::REDSTONE_DUST());
+        
+        $lobbyWorld = "world";
+        $lobby = $this->plugin->getServer()->getWorldManager()->getWorldByName($lobbyWorld);
+        
+        if ($lobby !== null) {
+            $player->teleport($lobby->getSpawnLocation());
+            $player->sendMessage("§aMap setup completed! You've been returned to the lobby.");
+        } else {
+            $defaultWorld = $this->plugin->getServer()->getWorldManager()->getDefaultWorld();
+            if ($defaultWorld !== null) {
+                $player->teleport($defaultWorld->getSpawnLocation());
+                $player->sendMessage("§aMap setup completed! You've been returned to the default world.");
+            }
         }
     }
-}
     
     public function onEntityDamage(EntityDamageByEntityEvent $event): void {
         $entity = $event->getEntity();
@@ -187,6 +217,12 @@ class PlayerInteractListener implements Listener {
             
             if (strpos($entityName, "Pillars Minigame") !== false) {
                 $event->cancel();
+                
+                $now = time();
+                if (isset($this->lastGameMenuInteract[$damager->getId()]) && ($now - $this->lastGameMenuInteract[$damager->getId()]) < 1) {
+                    return;
+                }
+                $this->lastGameMenuInteract[$damager->getId()] = $now;
                 
                 $form = GameMenuForm::createForm($this->plugin, $damager);
                 $damager->sendForm($form);
@@ -199,15 +235,24 @@ class PlayerInteractListener implements Listener {
         $item = $event->getItem();
         $playerState = $this->plugin->getGameManager()->checkPlayerState($player);
         
-        
         if ($playerState === 'spectating' || $playerState === 'playing') {
             $leaveGameItem = VanillaBlocks::BED()->setColor(DyeColor::RED())->asItem()->setCustomName("§cLeave Game");
             $spectateItem = VanillaItems::COMPASS()->setCustomName("§bSpectate Players");
             
-            if (
-                ($item->equals($spectateItem, true, true) && $item->getCustomName() === "§bSpectate Players") ||
-                ($item->equals($leaveGameItem, true, true) && $item->getCustomName() === "§cLeave Game")
-            ) {
+            if (($item->equals($spectateItem, true, true) && $item->getCustomName() === "§bSpectate Players") ||
+                ($item->equals($leaveGameItem, true, true) && $item->getCustomName() === "§cLeave Game")) {
+                $event->cancel();
+            }
+        }
+        
+        if ($player->getWorld()->getFolderName() === "world" && $playerState === null) {
+            $config = $this->plugin->getConfig();
+            $settings = $config->get("settings", []);
+            
+            $gameMenuSettings = $settings["game_menu"] ?? ["name" => "§4Game Menu §7(Right Click)"];
+            $marketSettings = $settings["market"] ?? ["name" => "§d§lMarket §7(Right Click)"];
+            
+            if ($item->getCustomName() === $gameMenuSettings["name"] || $item->getCustomName() === $marketSettings["name"]) {
                 $event->cancel();
             }
         }
@@ -218,17 +263,30 @@ class PlayerInteractListener implements Listener {
         $player = $transaction->getSource();
         $playerState = $this->plugin->getGameManager()->checkPlayerState($player);
         
-        
         if ($playerState === 'spectating' || $playerState === 'playing') {
             $leaveGameItem = VanillaBlocks::BED()->setColor(DyeColor::RED())->asItem()->setCustomName("§cLeave Game");
             $spectateItem = VanillaItems::COMPASS()->setCustomName("§bSpectate Players");
             
             foreach ($transaction->getActions() as $action) {
                 $item = $action->getTargetItem();
-                if (
-                    ($item->equals($spectateItem, true, true) && $item->getCustomName() === "§bSpectate Players") ||
-                    ($item->equals($leaveGameItem, true, true) && $item->getCustomName() === "§cLeave Game")
-                ) {
+                if (($item->equals($spectateItem, true, true) && $item->getCustomName() === "§bSpectate Players") ||
+                    ($item->equals($leaveGameItem, true, true) && $item->getCustomName() === "§cLeave Game")) {
+                    $event->cancel();
+                    break;
+                }
+            }
+        }
+        
+        if ($player->getWorld()->getFolderName() === "world" && $playerState === null) {
+            $config = $this->plugin->getConfig();
+            $settings = $config->get("settings", []);
+            
+            $gameMenuSettings = $settings["game_menu"] ?? ["name" => "§4Game Menu §7(Right Click)"];
+            $marketSettings = $settings["market"] ?? ["name" => "§d§lMarket §7(Right Click)"];
+            
+            foreach ($transaction->getActions() as $action) {
+                $item = $action->getTargetItem();
+                if ($item->getCustomName() === $gameMenuSettings["name"] || $item->getCustomName() === $marketSettings["name"]) {
                     $event->cancel();
                     break;
                 }
@@ -239,7 +297,6 @@ class PlayerInteractListener implements Listener {
     public function onBlockBreak(BlockBreakEvent $event): void {
         $player = $event->getPlayer();
         
-        
         $playerState = $this->plugin->getGameManager()->checkPlayerState($player);
         if ($playerState === 'spectating') {
             $event->cancel();
@@ -248,7 +305,6 @@ class PlayerInteractListener implements Listener {
     
     public function onBlockPlace(BlockPlaceEvent $event): void {
         $player = $event->getPlayer();
-        
         
         $playerState = $this->plugin->getGameManager()->checkPlayerState($player);
         if ($playerState === 'spectating') {
