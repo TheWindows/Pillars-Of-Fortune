@@ -41,4 +41,19 @@
 
 # === Configuration ===
 # Place your custom configuration settings below:
-settings: {}
+
+settings:
+  npc_particles:
+    enabled: true
+    style: rotating_ring
+    color: 7
+    speed: 5
+    density: 6
+  
+  game_menu:
+    slot: 0
+    name: "§4Game Menu §7(Right Click)"
+    
+  market:
+    slot: 8
+    name: "§d§lMarket §7(Right Click)"
