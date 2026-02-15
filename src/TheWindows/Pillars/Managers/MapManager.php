@@ -10,6 +10,7 @@ class MapManager {
     private $plugin;
     private $pluginPath;
     private $templateWorlds = [];
+    private $resettingWorlds = [];
     
     public function __construct(Main $plugin, string $pluginPath) {
         $this->plugin = $plugin;
@@ -23,7 +24,6 @@ class MapManager {
         
         if (!is_dir($mapsDataPath)) {
             mkdir($mapsDataPath, 0755, true);
-            // Only extract maps (including default) when Maps folder is newly created
             $this->extractMapsFromResources($mapsDataPath);
         }
         
@@ -243,11 +243,19 @@ class MapManager {
     }
     
     public function resetWorld(string $worldName): bool {
+        if (isset($this->resettingWorlds[$worldName])) {
+            $this->plugin->getLogger()->info("World $worldName is already being reset, skipping duplicate reset");
+            return true;
+        }
+        
+        $this->resettingWorlds[$worldName] = true;
+        
         $mapsDataPath = $this->plugin->getDataFolder() . "Maps/" . $worldName;
         $worldsPath = $this->plugin->getServer()->getDataPath() . "worlds/" . $worldName;
         
         if (!is_dir($mapsDataPath)) {
             $this->plugin->getLogger()->warning("Template for world '$worldName' not found in plugin data!");
+            unset($this->resettingWorlds[$worldName]);
             return false;
         }
         
@@ -259,7 +267,6 @@ class MapManager {
                     $this->plugin->getGameManager()->teleportToLobby($player);
                 }
                 $worldManager->unloadWorld($world, true);
-                
                 usleep(500000); 
             }
         }
@@ -269,6 +276,7 @@ class MapManager {
                 Filesystem::recursiveUnlink($worldsPath);
             } catch (\Exception $e) {
                 $this->plugin->getLogger()->error("Failed to delete world: " . $e->getMessage());
+                unset($this->resettingWorlds[$worldName]);
                 return false;
             }
         }
@@ -277,16 +285,22 @@ class MapManager {
             $this->recursiveCopy($mapsDataPath, $worldsPath);
         } catch (\Exception $e) {
             $this->plugin->getLogger()->error("Failed to copy template: " . $e->getMessage());
+            unset($this->resettingWorlds[$worldName]);
             return false;
         }
         
         if ($worldManager->loadWorld($worldName)) {
             $this->plugin->getLogger()->info("Successfully reset world: " . $worldName);
             $this->autoSetupSpawnPoints($worldName);
+            
+            $this->plugin->getNPCManager()->spawnNPCsInWorld($worldName);
+            
+            unset($this->resettingWorlds[$worldName]);
             return true;
         }
         
         $this->plugin->getLogger()->warning("Failed to load world after reset: " . $worldName);
+        unset($this->resettingWorlds[$worldName]);
         return false;
     }
     
