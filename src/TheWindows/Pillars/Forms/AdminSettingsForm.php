@@ -37,6 +37,9 @@ class AdminSettingsForm {
                 case 5:
                     self::removeArenaForm($plugin, $player);
                     break;
+                case 6:
+                    self::particleSettingsForm($plugin, $player);
+                    break;
             }
         });
         
@@ -47,8 +50,83 @@ class AdminSettingsForm {
         $form->addButton("§4Create NPC\n§8Spawn game joining NPC");
         $form->addButton("§4Remove All NPCs\n§8Remove all game NPCs");
         $form->addButton("§4Remove Arena\n§8Delete a game arena");
+        $form->addButton("§4Particle Settings\n§8Customize NPC effects");
         
         return $form;
+    }
+    
+    private static function particleSettingsForm(Main $plugin, Player $player): void {
+        $npcManager = $plugin->getNPCManager();
+        
+        $form = new CustomForm(function(Player $player, $data) use ($plugin, $npcManager) {
+            if($data === null) return;
+            
+            if($data[1] !== null) {
+                $styles = ['rotating_ring', 'spiral', 'double_helix', 'pulse', 'rain', 'crown'];
+                $selectedStyle = $styles[(int)$data[1]] ?? 'rotating_ring';
+                $npcManager->setParticleStyle($selectedStyle);
+            }
+            
+            if($data[2] !== null) {
+                $npcManager->setParticleColor((int)$data[2]);
+            }
+            
+            if($data[3] !== null) {
+                $npcManager->setParticleSpeed((float)$data[3]);
+            }
+            
+            if($data[4] !== null) {
+                $npcManager->setParticleDensity((int)$data[4]);
+            }
+            
+            if($data[5] !== null) {
+                $npcManager->setParticlesEnabled((bool)$data[5]);
+            }
+            
+            $npcManager->saveConfig();
+            $player->sendMessage("§aParticle settings updated successfully!");
+        });
+        
+        $currentEnabled = $npcManager->isParticlesEnabled();
+        $currentStyle = $npcManager->getParticleStyle();
+        $currentColor = $npcManager->getParticleColorIndex();
+        $currentSpeed = $npcManager->getParticleSpeed();
+        $currentDensity = $npcManager->getParticleDensity();
+        
+        $styleIndex = 0;
+        $styles = ['rotating_ring', 'spiral', 'double_helix', 'pulse', 'rain', 'crown'];
+        foreach($styles as $index => $style) {
+            if($style === $currentStyle) {
+                $styleIndex = $index;
+                break;
+            }
+        }
+        
+        $form->setTitle("§4§lParticle Settings");
+        $form->addLabel("§8Customize NPC particle effects");
+        $form->addDropdown("§4Particle Style", [
+            "§4Rotating Ring §8- Particles circle around",
+            "§4Spiral §8- Particles spiral upward",
+            "§4Double Helix §8- Two intertwined spirals",
+            "§4Pulse Wave §8- Pulsing rings",
+            "§4Particle Rain §8- Falling particles",
+            "§4Crown §8- Crown-like formation"
+        ], $styleIndex);
+        $form->addDropdown("§4Particle Color", [
+            "§4Dark Red",
+            "§2Dark Green",
+            "§1Dark Blue",
+            "§6Gold",
+            "§5Dark Purple",
+            "§6Orange",
+            "§7Gray",
+            "§0Black"
+        ], $currentColor);
+        $form->addSlider("§4Particle Speed", 1, 10, 1, $currentSpeed);
+        $form->addSlider("§4Particle Density", 2, 12, 1, $currentDensity);
+        $form->addToggle("§4Enable Particles", $currentEnabled);
+        
+        $player->sendForm($form);
     }
     
     private static function createGameForm(Main $plugin, Player $player): void {
@@ -74,7 +152,7 @@ class AdminSettingsForm {
             $maxPlayers = max(2, min(24, $maxPlayers));
             $minPlayers = max(2, min($maxPlayers, $minPlayers));
             $countdownTime = max(5, min(60, $countdownTime));
-            $itemInterval = max(10, min(300, $itemInterval));
+            $itemInterval = max(3, min(300, $itemInterval));
             $gameTime = 1200; 
             
             $worldManager = $plugin->getServer()->getWorldManager();
@@ -138,7 +216,7 @@ class AdminSettingsForm {
         $form->addInput("§4Max Players (2-24):", "8", "8");
         $form->addInput("§4Min Players to Start (2-Max):", "2", "2");
         $form->addInput("§4Countdown Time seconds (5-60):", "30", "30");
-        $form->addInput("§4Item Interval seconds (10-300):", "30", "30");
+        $form->addInput("§4Item Interval seconds (3-300):", "10", "10");
         
         $player->sendForm($form);
     }
@@ -155,7 +233,6 @@ class AdminSettingsForm {
             }
             
             if($plugin->getGameManager()->removeGame($worldName)) {
-                // Delete the map folder from plugin data
                 $mapsDataPath = $plugin->getDataFolder() . "Maps/" . $worldName;
                 if(is_dir($mapsDataPath)) {
                     try {
