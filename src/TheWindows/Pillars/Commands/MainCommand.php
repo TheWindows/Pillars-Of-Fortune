@@ -19,7 +19,7 @@ class MainCommand extends Command {
         'info' => 'Plugin information',
         'admin' => 'Admin commands',
         'npc' => 'Manage NPCs (admin)',
-        'reset' => 'Reset a game map (admin)' 
+        'reset' => 'Reset a game map (admin)'
     ];
     
     public function __construct(Main $plugin) {
@@ -131,7 +131,12 @@ class MainCommand extends Command {
                 $sender->sendMessage("§7====================");
                 $sender->sendMessage("§aUse §e/pillars join <map> §ato join a specific game!");
                 return true;
-                
+            case "stats":
+            case "stat":
+            case "s":
+                $form = \TheWindows\Pillars\Forms\StatsForm::createForm($this->plugin, $sender);
+                $sender->sendForm($form);
+                return true;    
             case "info":
             case "i":
                 $gameManager = $this->plugin->getGameManager();
@@ -153,11 +158,12 @@ class MainCommand extends Command {
                 $sender->sendMessage("§aAvailable Commands:");
                 $sender->sendMessage("§e/pillars join §7- Join a game");
                 $sender->sendMessage("§e/pillars leave §7- Leave current game");
+                $sender->sendMessage("§e/pillars stats §7- Opens stats menu");
                 $sender->sendMessage("§e/pillars list §7- List available games");
                 $sender->sendMessage("§e/pillars info §7- Plugin information");
                 $sender->sendMessage("§e/pillars admin §7- Admin commands");
                 $sender->sendMessage("§e/pillars npc §7- Manage NPCs (admin)");
-                $sender->sendMessage("§e/pillars reset §7- Reset a game map (admin)"); 
+                $sender->sendMessage("§e/pillars reset §7- Reset a game map (admin)");
                 $sender->sendMessage("§7====================");
                 return true;
                 
@@ -173,26 +179,13 @@ class MainCommand extends Command {
                 return true;
                 
             case "npc":
+            case "n":
                 if(!$sender->hasPermission("pillars.admin")) {
                     $sender->sendMessage("§cYou don't have permission to use this command!");
                     return false;
                 }
-                
                 $npcManager = $this->plugin->getNPCManager();
-                
-                if(empty($args[1])) {
-                    $sender->sendMessage("§6§lNPC Management:");
-                    $sender->sendMessage("§7====================");
-                    $sender->sendMessage("§e/pillars npc create §7- Create an NPC");
-                    $sender->sendMessage("§e/pillars npc list §7- List all NPCs");
-                    $sender->sendMessage("§e/pillars npc remove <id> §7- Remove an NPC");
-                    $sender->sendMessage("§e/pillars npc removeall §7- Remove all NPCs");
-                    $sender->sendMessage("§7====================");
-                    return true;
-                }
-                
                 $npcSubcommand = strtolower($args[1]);
-                
                 switch($npcSubcommand) {
                     case "create":
                     case "c":
@@ -223,7 +216,7 @@ class MainCommand extends Command {
                                 $sender->sendMessage("§cInvalid NPC index.");
                             }
                         } else {
-                            $sender->sendMessage("§cUsage: /pillars npc remove <index>");
+                            $sender->sendMessage("§cUsage: /p n r <index>");
                         }
                         break;
                         
@@ -234,7 +227,7 @@ class MainCommand extends Command {
                         break;
                         
                     default:
-                        $sender->sendMessage("§cUnknown NPC subcommand. Use /pillars npc for help.");
+                        $sender->sendMessage("§cUnknown NPC subcommand. Use /p n for help.");
                         break;
                 }
                 return true;
@@ -251,7 +244,6 @@ class MainCommand extends Command {
                     $sender->sendMessage("§e/pillars reset <mapname> §7- Reset a specific map");
                     $sender->sendMessage("§e/pillars reset all §7- Reset all maps");
                     
-                    
                     $gameManager = $this->plugin->getGameManager();
                     $availableGames = $gameManager->getAvailableGames();
                     $gameNames = array_column($availableGames, 'world');
@@ -266,7 +258,6 @@ class MainCommand extends Command {
                 $mapName = $args[1];
                 
                 if($mapName === "all") {
-                    
                     $gameManager = $this->plugin->getGameManager();
                     $availableGames = $gameManager->getAvailableGames();
                     $resetCount = 0;
@@ -281,10 +272,9 @@ class MainCommand extends Command {
                         }
                     }
                     
-                    $sender->sendMessage("§aSuccessfully reset §6$resetCount§a maps!");
+                    $sender->sendMessage("§aSuccessfully reset §6$resetCount §amaps!");
                     return true;
                 } else {
-                    
                     if($this->plugin->getMapManager()->resetWorld($mapName)) {
                         $sender->sendMessage("§aSuccessfully reset map: §6$mapName");
                     } else {
@@ -296,22 +286,8 @@ class MainCommand extends Command {
                 break;
                 
             default:
-                
-                $matched = [];
-                foreach(array_keys($this->subcommands) as $cmd) {
-                    if(stripos($cmd, $subcommand) === 0) {
-                        $matched[] = $cmd;
-                    }
-                }
-                
-                if(count($matched) === 1) {
-                    
-                    $args[0] = $matched[0];
-                    return $this->execute($sender, $commandLabel, $args);
-                } else {
-                    $this->showCommandList($sender);
-                    return false;
-                }
+                $sender->sendMessage("§cUnknown command. Use /pillars for help.");
+                return false;
         }
     }
     
@@ -326,22 +302,5 @@ class MainCommand extends Command {
                 $sender->sendMessage("§e/pillars $cmd §7- $desc");
             }
         }
-        
-        $sender->sendMessage("§7====================");
-        $sender->sendMessage("§aTip: Use partial commands like §e/p j §afor §e/pillars join");
-    }
-    
-    public function getAvailableSubcommands(Player $player): array {
-        $available = [];
-        
-        foreach($this->subcommands as $cmd => $desc) {
-            $permission = ($cmd === 'admin' || $cmd === 'npc' || $cmd === 'reset') ? 'pillars.admin' : 'pillars.join';
-            
-            if($player->hasPermission($permission)) {
-                $available[] = $cmd;
-            }
-        }
-        
-        return $available;
     }
 }
