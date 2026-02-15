@@ -31,13 +31,16 @@ class Main extends PluginBase {
     private $scoreHUDManager;
     private $mapManager;
     
+    public function onLoad(): void {
+        error_reporting(E_ALL & ~E_DEPRECATED);
+    }
+    
     public static function getInstance(): Main {
         return self::$instance;
     }
     
     public function onEnable(): void {
         self::$instance = $this;
-        
         
         $this->saveDefaultConfig();
         $this->saveResource("spawnpoints.yml");
@@ -48,24 +51,26 @@ class Main extends PluginBase {
         $this->mapManager = new MapManager($this, $this->getFile());
         $this->worldManager = new WorldManager($this);
         $this->spawnManager = new SpawnManager($this);
+        
+        EntityFactory::getInstance()->register(PillarsNPC::class, function(World $world, CompoundTag $nbt): PillarsNPC {
+            return new PillarsNPC(EntityDataHelper::parseLocation($nbt, $world), null, $nbt);
+        }, ['PillarsNPC', 'pillars:npc']);
+        
         $this->npcManager = new NPCManager($this);
         $this->gameManager = new GameManager($this);
         $this->scoreHUDManager = new ScoreHUDManager($this);
         
         $this->getMapManager()->setupTemplateWorlds();
         
-        
         $arenaWorlds = $this->configManager->getArenaWorlds();
         foreach ($arenaWorlds as $worldName) {
-            $this->mapManager->resetWorld($worldName);
-            $this->getLogger()->info("Reset arena world: " . $worldName);
+            if ($worldName !== "world") {
+                $this->mapManager->resetWorld($worldName);
+                $this->getLogger()->info("Reset arena world: " . $worldName);
+            }
         }
         
         $this->getWorldManager()->loadArenaWorlds();
-        
-        EntityFactory::getInstance()->register(PillarsNPC::class, function(World $world, CompoundTag $nbt): PillarsNPC {
-            return new PillarsNPC(EntityDataHelper::parseLocation($nbt, $world), PillarsNPC::parseSkinNBT($nbt), $nbt);
-        }, ['PillarsNPC']);
         
         $this->getServer()->getCommandMap()->register("pillars", new MainCommand($this));
         
@@ -127,7 +132,9 @@ class Main extends PluginBase {
     
     public function onDisable(): void {
         $this->configManager->saveAll();
-        $this->npcManager->cleanup();
+        if ($this->npcManager !== null) {
+            $this->npcManager->cleanup();
+        }
         $this->getLogger()->info("Pillars Minigame disabled!");
     }
     
