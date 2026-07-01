@@ -13,6 +13,8 @@ class ConfigManager {
     private Config $mapsConfig;
     private Config $npcsConfig;
 
+    private array $configData = [];
+
     public function __construct(Main $plugin) {
         $this->plugin = $plugin;
 
@@ -33,10 +35,21 @@ class ConfigManager {
             Config::YAML,
             ['npcs' => []]
         );
+
+        $this->configData = $this->getConfig()->getAll();
     }
 
     public function getConfig(): Config {
         return $this->plugin->getConfig();
+    }
+
+    public function getConfigValue(string $key, mixed $default = null):mixed{
+        if(isset($this->configData[$key])) return $this->configData[$key];
+        return $default;
+    }
+
+    public function getConfigData():array{
+        return $this->configData;
     }
 
     public function getSpawnConfig(): Config {

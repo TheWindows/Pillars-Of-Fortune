@@ -33,6 +33,14 @@ settings:
     slot: 4
     name: "§r§eSpectate Map §7[Use]"
 
+
+itemBlackList:
+- "barrier"
+- "zombie_spawn_egg"
+- "villager_spawn_egg"
+- "bedrock"
+
+
 # Scoreboard settings
 # update-interval: how often the scoreboard refreshes (in ticks, 20 = 1 second)
 # Available placeholders:

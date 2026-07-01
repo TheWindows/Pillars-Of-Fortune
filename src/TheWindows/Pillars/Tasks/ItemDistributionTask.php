@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace TheWindows\Pillars\Tasks;
 
 use pocketmine\block\VanillaBlocks;
+use pocketmine\item\Item;
 use pocketmine\item\VanillaItems;
 use pocketmine\player\Player;
 use pocketmine\scheduler\Task;
@@ -18,6 +19,9 @@ class ItemDistributionTask extends Task {
     private int $itemInterval;
     private int $timer;
     private array $bossBars = [];
+
+    /** @var Item[] */
+    private array $itemPool = [];
 
     public function __construct(Main $plugin, array $players, string $gameId, int $maxPlayers) {
         $this->plugin     = $plugin;
@@ -41,6 +45,8 @@ class ItemDistributionTask extends Task {
                 $this->bossBars[$player->getId()] = $bar;
             }
         }
+
+        $this->buildItemPool();
     }
 
     public function onRun(): void {
@@ -75,20 +81,37 @@ class ItemDistributionTask extends Task {
         $this->updateBossBars($percentage, "§cNext item in: §6{$seconds}s");
     }
 
-    private function distributeItems(): void {
-        $itemPool = [];
+    private function buildItemPool(): void {
+        $pool = [];
         foreach (VanillaItems::getAll() as $item) {
-            if ($item->getName() !== 'Air' && !$item->isNull()) $itemPool[] = $item;
+            if ($item->getName() !== 'Air' && !$item->isNull()) {
+                $pool[] = $item;
+            }
         }
         foreach (VanillaBlocks::getAll() as $block) {
             $item = $block->asItem();
-            if ($item->getName() !== 'Air' && !$item->isNull()) $itemPool[] = $item;
+            if ($item->getName() !== 'Air' && !$item->isNull()) {
+                $pool[] = $item;
+            }
         }
-        if (empty($itemPool)) return;
+        $this->filterItems($pool);
+        $this->itemPool = array_values($pool);
+    }
+
+    private function filterItems(array &$itemPool): void {
+        foreach ($itemPool as $index => $item) {
+            if (in_array(strtolower($item->getName()), $this->plugin->getConfigManager()->getConfigValue("itemBlackList", []), true)) {
+                unset($itemPool[$index]);
+            }
+        }
+    }
+
+    private function distributeItems(): void {
+        if (empty($this->itemPool)) return;
 
         foreach ($this->players as $player) {
             if (!$player->isOnline()) continue;
-            $item = clone $itemPool[array_rand($itemPool)];
+            $item = clone $this->itemPool[array_rand($this->itemPool)];
             $item->setCount(1);
             $inventory = $player->getInventory();
             if ($inventory->canAddItem($item)) {

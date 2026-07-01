@@ -3,7 +3,7 @@ version: 2.0.0
 
 main: TheWindows\Pillars\Main
 api: 5.0.0
-authors: [TheWindows, Doma]
+authors: [TheWindows, Doma, Amirxd]
 
 description: Pillars of Fortune minigame for PocketMine-MP
 

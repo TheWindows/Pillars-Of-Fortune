@@ -92,4 +92,9 @@ Configure scoreboard lines in `config.yml` using these placeholders:
 - GitHub: [Doma-0609](https://github.com/Doma-0609)
 - Telegram: [xIsGod](https://t.me/xIsGod)
 
+### Amirxd
+- Discord: Soon (._.)
+- GitHub: [amirxdcy4455](https://github.com/amirxdcy4455)
+- Telegram: [amirxdcy](https://t.me/amirxdcy)
+
 > **© 2025 TheWindows. All Rights Reserved.** 

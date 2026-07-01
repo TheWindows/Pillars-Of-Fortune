@@ -2,7 +2,9 @@
 declare(strict_types=1);
 namespace TheWindows\Pillars\Managers;
 
+use pocketmine\scheduler\ClosureTask;
 use pocketmine\utils\Filesystem;
+use pocketmine\world\WorldManager;
 use TheWindows\Pillars\Main;
 
 class MapManager {
@@ -270,37 +272,41 @@ class MapManager {
                     $this->plugin->getGameManager()->teleportToLobby($player);
                 }
                 $wm->unloadWorld($world, true);
-                usleep(500000);
+
+                $this->plugin->getScheduler()->scheduleDelayedTask(
+                    new ClosureTask(fn() => $this->doReset($instanceName, $templateName, $mapsDataPath, $worldsPath, $wm)),
+                    10
+                );
+                return true;
             }
         }
 
+        $this->doReset($instanceName, $templateName, $mapsDataPath, $worldsPath, $wm);
+        return true;
+    }
+
+    private function doReset(string $instanceName, string $templateName, string $mapsDataPath, string $worldsPath, WorldManager $wm): void {
         if (is_dir($worldsPath)) {
             try {
                 Filesystem::recursiveUnlink($worldsPath);
             } catch (\Exception $e) {
                 $this->plugin->getLogger()->error('Failed to delete world: ' . $e->getMessage());
                 unset($this->resettingWorlds[$instanceName]);
-                return false;
+                return;
             }
         }
-
         try {
             $this->recursiveCopy($mapsDataPath, $worldsPath);
         } catch (\Exception $e) {
             $this->plugin->getLogger()->error('Failed to copy template: ' . $e->getMessage());
             unset($this->resettingWorlds[$instanceName]);
-            return false;
+            return;
         }
-
         if ($wm->loadWorld($instanceName)) {
             $this->autoSetupSpawnPoints($instanceName, $templateName);
             $this->plugin->getNPCManager()->spawnNPCsInWorld($instanceName);
-            unset($this->resettingWorlds[$instanceName]);
-            return true;
         }
-
         unset($this->resettingWorlds[$instanceName]);
-        return false;
     }
 
     public function deleteInstance(string $instanceName): void {
