@@ -5,7 +5,7 @@ main: TheWindows\Pillars\Main
 api: 5.0.0
 authors: [TheWindows, Doma, Amirxd]
 
-description: Pillars of Fortune minigame for PocketMine-MP
+description: Pillars of Fortune MiniGame for PocketMine-MP 
 
 virions:
   - apibossbar
